@@ -1,0 +1,151 @@
+###########################################################
+#START BUTTON
+###########################################################
+
+n = nuke.thisNode()
+
+def clear():
+    n = nuke.thisNode()
+    buttons = ['dw_start', 'dw_grabchunk', 'dw_trim_left', 'dw_trim_right', 'dw_undo', 'dw_clear', 'dw_topnode_file']
+    for knob in n.allKnobs():
+        if knob.name().startswith('dw_') and knob.Class() == 'EvalString_Knob':
+            if knob.name() not in buttons:
+                knob.setValue('')
+
+clear()
+
+#n.knob('dw_topnode_file').value('[value [topnode].file]')
+evalTopnode = n.knob('dw_topnode_file').evaluate()
+n.knob('dw_file').setValue(evalTopnode)
+TCLcode = '[basename [file rootname [value [topnode].file]]]'
+
+n.knob('dw_TCLcode').setValue(TCLcode)
+evalTCL = n.knob('dw_TCLcode').evaluate()
+n.knob('dw_output').setValue(evalTCL)
+n.knob('dw_basename').setValue(evalTCL)
+
+delimiters = []
+for char in evalTCL:
+    if char is '_' or char is ".":
+        delimiters.append(char)
+#delimiters.pop(-1) #base name doesn't have last .
+delimiters = ' '.join(delimiters)
+n.knob('dw_delimiters').setValue(delimiters)
+n.knob('dw_output').setValue(evalTCL)
+
+
+
+###########################################################
+#GRAB CHUNK
+###########################################################
+
+def get_len_dlist(delimiter):
+    #will return the length of the list as the index
+    d_list = []  
+    for d in delimiters:
+        #print 'd', d, 'delim', delimiter
+        if d in delimiter:
+            d_list.append(d)
+    index = len(d_list)
+    d_list = ' '.join(d_list)
+    n.knob('dw_d_list').setValue(d_list)
+    return index
+
+
+
+n = nuke.thisNode()
+basename = n.knob('dw_basename').value()
+
+#get some more variable info from the root knobs
+TCLcode = n.knob('dw_TCLcode').toScript()
+prev_index = n.knob('dw_index').value()
+
+delimiters = n.knob('dw_delimiters').value()
+delimiter = list(delimiters.split(' '))[-1]
+prev_delimiter = n.knob('dw_delimiter').value()
+try:  
+    next_delimiter =  delimiters[-2]
+except:
+    next_delimiter = ''
+
+#conform the TCL code for each situation
+if prev_delimiter == '' and prev_index == '':#first run
+    print 'first run'
+    index = get_len_dlist(delimiter)
+    TCLcode = '[lrange [split %s %s] %s %s]' % (TCLcode, delimiter, index, index)
+
+
+else:#second and subsequent runs
+    print 'subsequent run'
+    if delimiter == next_delimiter or delimiter == prev_delimiter: #one of many delimiters in a row
+        print 'same delimiter'
+        index = str(int(prev_index)-1)
+        if index <= 0:
+            index = ''
+        TCLcode = TCLcode.replace(prev_index, index, 2)
+
+    else:#it's a new delimiter
+        print 'new delimiter'
+        src = orig_TCL.split(prev_delimiter)
+        src_last_chunk = src.pop(-1)
+        src_last_chunk = src_last_chunk.replace(prev_index, '0', 2) #put inner at 0
+        src = ".".join(src)
+
+        #make d_list and use the last one as the index
+        index = get_len_dlist(delimiter)
+
+        last_chunk = " %s] %s %s]" % (delimiter, index, index)
+        new_tail = " %s%s%s" % (prev_delimiter, src_last_chunk, last_chunk)
+        new_head = "[lrange [split "
+        TCLcode = "%s%s%s" % (new_head, src, new_tail)
+
+
+
+#remove one and store new delimiter list
+delimiters = list(delimiters.split(' '))
+delimiters.pop(-1)
+delimiters = ' '.join(delimiters)
+n.knob('dw_delimiters').setValue(delimiters)
+
+n.knob('dw_TCLcode').setValue(TCLcode)
+index = str(index)
+n.knob('dw_index').setValue(index) 
+
+n.knob('dw_delimiter').setValue(delimiter)
+
+evalTCL = n.knob('dw_TCLcode').evaluate()
+n.knob('dw_output').setValue(evalTCL)
+
+
+###########################################################
+#remove_left
+###########################################################
+TCLinput = n.knob('dw_TCLcode').value()
+head = '[join [lrange [split '
+tail = ' {}] 1 end] {}]'
+TCLcode = '%s%s%s' % (head, TCLinput, tail)
+n.knob('dw_TCLcode').setValue(TCLcode)
+evalTCL = n.knob('dw_TCLcode').evaluate()
+n.knob('dw_output').setValue(evalTCL)
+
+
+
+###########################################################
+#remove_right
+###########################################################
+
+output = TCLinput = n.knob('dw_output').value()
+try:
+    index = len(output)-2
+except:
+    index = '0'
+print index
+
+
+TCLinput = n.knob('dw_TCLcode').value()
+head = '[join [lrange [split '
+tail = ' {}] 0 %s] {}]' % (index)
+TCLcode = '%s%s%s' % (head, TCLinput, tail)
+n.knob('dw_TCLcode').setValue(TCLcode)
+evalTCL = n.knob('dw_TCLcode').evaluate()
+n.knob('dw_output').setValue(evalTCL)
