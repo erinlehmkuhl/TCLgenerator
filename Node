@@ -1,0 +1,27 @@
+set cut_paste_input [stack 0]
+version 12.0 v5
+push $cut_paste_input
+NoOp {
+ name TCLgenerator
+ selected true
+ xpos 94
+ ypos -173
+ addUserKnob {20 User}
+ addUserKnob {1 dw_file l "input file"}
+ addUserKnob {26 ""}
+ addUserKnob {1 dw_TCLcode l "TCL code"}
+ addUserKnob {1 dw_output l output}
+ addUserKnob {26 ""}
+ addUserKnob {1 dw_delimiters l delimiters +INVISIBLE}
+ addUserKnob {1 dw_delimiter l delimiter +INVISIBLE}
+ addUserKnob {1 dw_index l index +INVISIBLE}
+ addUserKnob {1 dw_d_list l "d list" +INVISIBLE}
+ addUserKnob {1 dw_basename l basename +INVISIBLE}
+ addUserKnob {1 dw_topnode_file l topnode_file +INVISIBLE}
+ dw_topnode_file "\[value \[topnode].file]"
+ addUserKnob {22 dw_start l start T "n = nuke.thisNode()\n\ndef clear():\n    n = nuke.thisNode()\n    buttons = \['dw_start', 'dw_grabchunk', 'dw_trim_left', 'dw_trim_right', 'dw_undo', 'dw_clear', 'dw_topnode_file']\n    for knob in n.allKnobs():\n        if knob.name().startswith('dw_') and knob.Class() == 'EvalString_Knob':\n            if knob.name() not in buttons:\n                knob.setValue('')\n\nclear()\n\n#n.knob('dw_topnode_file').value('\[value \[topnode].file]')\nevalTopnode = n.knob('dw_topnode_file').evaluate()\nn.knob('dw_file').setValue(evalTopnode)\nTCLcode = '\[basename \[file rootname \[value \[topnode].file]]]'\n\nn.knob('dw_TCLcode').setValue(TCLcode)\nevalTCL = n.knob('dw_TCLcode').evaluate()\nn.knob('dw_output').setValue(evalTCL)\nn.knob('dw_basename').setValue(evalTCL)\n\ndelimiters = \[]\nfor char in evalTCL:\n    if char is '_' or char is \".\":\n        delimiters.append(char)\n#delimiters.pop(-1) #base name doesn't have last .\ndelimiters = ' '.join(delimiters)\nn.knob('dw_delimiters').setValue(delimiters)\nn.knob('dw_output').setValue(evalTCL)\n\n\n" +STARTLINE}
+ addUserKnob {22 dw_grabchunk l "grab chunk" -STARTLINE T "\ndef get_len_dlist(delimiter):\n    #will return the length of the list as the index\n    d_list = \[]  \n    for d in delimiters:\n        #print 'd', d, 'delim', delimiter\n        if d in delimiter:\n            d_list.append(d)\n    index = len(d_list)\n    d_list = ' '.join(d_list)\n    n.knob('dw_d_list').setValue(d_list)\n    return index\n\n\n\nn = nuke.thisNode()\nbasename = n.knob('dw_basename').value()\n\n#get some more variable info from the root knobs\nTCLcode = n.knob('dw_TCLcode').toScript()\nprev_index = n.knob('dw_index').value()\n\ndelimiters = n.knob('dw_delimiters').value()\ndelimiter = list(delimiters.split(' '))\[-1]\nprev_delimiter = n.knob('dw_delimiter').value()\ntry:  \n    next_delimiter =  delimiters\[-2]\nexcept:\n    next_delimiter = ''\n\n#conform the TCL code for each situation\nif prev_delimiter == '' and prev_index == '':#first run\n    print 'first run'\n    index = get_len_dlist(delimiter)\n    TCLcode = '\[lrange \[split %s %s] %s %s]' % (TCLcode, delimiter, index, index)\n\n\nelse:#second and subsequent runs\n    print 'subsequent run'\n    if delimiter == next_delimiter or delimiter == prev_delimiter: #one of many delimiters in a row\n        print 'same delimiter'\n        index = str(int(prev_index)-1)\n        if index <= 0:\n            index = ''\n        TCLcode = TCLcode.replace(prev_index, index, 2)\n\n    else:#it's a new delimiter\n        print 'new delimiter'\n        src = orig_TCL.split(prev_delimiter)\n        src_last_chunk = src.pop(-1)\n        src_last_chunk = src_last_chunk.replace(prev_index, '0', 2) #put inner at 0\n        src = \".\".join(src)\n\n        #make d_list and use the last one as the index\n        index = get_len_dlist(delimiter)\n\n        last_chunk = \" %s] %s %s]\" % (delimiter, index, index)\n        new_tail = \" %s%s%s\" % (prev_delimiter, src_last_chunk, last_chunk)\n        new_head = \"\[lrange \[split \"\n        TCLcode = \"%s%s%s\" % (new_head, src, new_tail)\n\n\n\n#remove one and store new delimiter list\ndelimiters = list(delimiters.split(' '))\ndelimiters.pop(-1)\ndelimiters = ' '.join(delimiters)\nn.knob('dw_delimiters').setValue(delimiters)\n\nn.knob('dw_TCLcode').setValue(TCLcode)\nindex = str(index)\nn.knob('dw_index').setValue(index) \n\nn.knob('dw_delimiter').setValue(delimiter)\n\nevalTCL = n.knob('dw_TCLcode').evaluate()\nn.knob('dw_output').setValue(evalTCL)\n\n\n"}
+ addUserKnob {22 dw_trim_left l "trim 1 from left" T "TCLinput = n.knob('dw_TCLcode').value()\nhead = '\[join \[lrange \[split '\ntail = ' \{\}] 1 end] \{\}]'\nTCLcode = '%s%s%s' % (head, TCLinput, tail)\nn.knob('dw_TCLcode').setValue(TCLcode)\nevalTCL = n.knob('dw_TCLcode').evaluate()\nn.knob('dw_output').setValue(evalTCL)" +STARTLINE}
+ addUserKnob {22 dw_trim_right l "trim 1 from right" -STARTLINE T "\noutput = TCLinput = n.knob('dw_output').value()\ntry:\n    index = len(output)-2\nexcept:\n    index = '0'\nprint index\n\n\nTCLinput = n.knob('dw_TCLcode').value()\nhead = '\[join \[lrange \[split '\ntail = ' \{\}] 0 %s] \{\}]' % (index)\nTCLcode = '%s%s%s' % (head, TCLinput, tail)\nn.knob('dw_TCLcode').setValue(TCLcode)\nevalTCL = n.knob('dw_TCLcode').evaluate()\nn.knob('dw_output').setValue(evalTCL)"}
+ addUserKnob {22 dw_clear l clear T "n = nuke.thisNode()\nbuttons = \['dw_start', 'dw_grabchunk', 'dw_trim_left', 'dw_trim_right', 'dw_undo', 'dw_clear', 'dw_topnode_file']\nfor knob in n.allKnobs():\n    if knob.name().startswith('dw_') and knob.Class() == 'EvalString_Knob':\n        if knob.name() not in buttons:\n            print knob.name(), knob.value(), knob.Class()\n            knob.setValue('')\n" +STARTLINE}
+}
