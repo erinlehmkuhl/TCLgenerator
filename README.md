@@ -8,3 +8,8 @@ Click 'grab chunk' or a 'trim' button to isolate the exact bit of filepath you'r
 
 'TCL code' knob: delivers the expression
 'output' knob shows you what the expression does
+
+
+*note
+one of the hidden knobs starts pre-filled out.
+if you copy this code to another node - keep that in mind. it is the topnode knob
