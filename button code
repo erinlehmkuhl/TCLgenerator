@@ -14,7 +14,6 @@ def clear():
 
 clear()
 
-#n.knob('dw_topnode_file').value('[value [topnode].file]')
 evalTopnode = n.knob('dw_topnode_file').evaluate()
 n.knob('dw_file').setValue(evalTopnode)
 TCLcode = '[basename [file rootname [value [topnode].file]]]'
@@ -28,7 +27,7 @@ delimiters = []
 for char in evalTCL:
     if char is '_' or char is ".":
         delimiters.append(char)
-#delimiters.pop(-1) #base name doesn't have last .
+
 delimiters = ' '.join(delimiters)
 n.knob('dw_delimiters').setValue(delimiters)
 n.knob('dw_output').setValue(evalTCL)
@@ -86,7 +85,7 @@ else:#second and subsequent runs
 
     else:#it's a new delimiter
         print 'new delimiter'
-        src = orig_TCL.split(prev_delimiter)
+        src = TCLcode.split(prev_delimiter)
         src_last_chunk = src.pop(-1)
         src_last_chunk = src_last_chunk.replace(prev_index, '0', 2) #put inner at 0
         src = ".".join(src)
